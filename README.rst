@@ -2,7 +2,7 @@ channelstream
 =============
 Basic usage::
 
-    YOUR_PYTHON_ENV/bin/pserver channelstream.ini
+    YOUR_PYTHON_ENV/bin/pserver channelstream.ini #see below for ini file format
 
 
 You can also see simple pyramid/angularjs demo included, open your browser and point it to following url::
@@ -40,10 +40,6 @@ All messages need to be signed with a HMAC::
 The function accepts endpoint in form of '/messages' if you want to send a message
  to users. This will be validated on socketio server side.
 
-
-Possible config options for the server::
-
-    YOUR_PYTHON_ENV/bin/
 
 example ini file::
 
