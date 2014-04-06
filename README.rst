@@ -142,31 +142,31 @@ Example socket.io client usage
 
 Responses to client are in form of **list** containing **objects**:
 
-examples:
+examples::
 
-            socket = io.connect('http://127.0.0.1:8000/stream?username=' + data.username + '&sig=' + encodeURIComponent(data.sig));
-            socket.on('connecting', function () {
-                console.log('connecting');
-            });
-            socket.on('connect', function () {
-                console.log('connected');
-                socket.emit('join', ['pub_chan', 'pub_chan2'])
-            });
-            socket.on('disconnect', function () {
-                console.log('disconnected');
-            });
-            socket.on('user_connect', function (message, callback) {
-                console.log('user_connect', message);
-            });
-            socket.on('message', function(messages){
-                console.log('messages', messages);
-            };
-            socket.on('join', function (channels) {
-                console.log('join', channels);
-            });
-            socket.on('leave', function (channels) {
-                console.log('leave', channels);
-            });
+    socket = io.connect('http://127.0.0.1:8000/stream?username=' + data.username + '&sig=' + encodeURIComponent(data.sig));
+    socket.on('connecting', function () {
+        console.log('connecting');
+    });
+    socket.on('connect', function () {
+        console.log('connected');
+        socket.emit('join', ['pub_chan', 'pub_chan2'])
+    });
+    socket.on('disconnect', function () {
+        console.log('disconnected');
+    });
+    socket.on('user_connect', function (message, callback) {
+        console.log('user_connect', message);
+    });
+    socket.on('message', function(messages){
+        console.log('messages', messages);
+    };
+    socket.on('join', function (channels) {
+        console.log('join', channels);
+    });
+    socket.on('leave', function (channels) {
+        console.log('leave', channels);
+    });
 
 Installation and Setup
 ======================
