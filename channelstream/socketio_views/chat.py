@@ -20,6 +20,9 @@ class StreamNamespace(BaseNamespace):
         # print 'initialize'
         sig = self.request.GET.get('signature')
         user_name = self.request.GET.get('username')
+        if not sig or not user_name:
+            self.disconnect(silent=True)
+            return
         hmac_validate(self.request.registry.settings['secret'],
                       user_name , sig)
         def_status = self.request.registry.settings['status_codes']['online']
@@ -37,8 +40,9 @@ class StreamNamespace(BaseNamespace):
             self.socket.disconnect()
 
     def recv_disconnect(self):
-        del CONNECTIONS[id(self)]
         self.disconnect(silent=True)
+        del CONNECTIONS[id(self)]
+
 
     def on_join(self, channels):
         # print 'on_join', channels

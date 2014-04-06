@@ -55,7 +55,9 @@ channelstreamApp.controller('chatCtl', function ($scope, $http) {
         success(function (data, status, headers, config) {
             $scope.user.userName = data['username'];
             $scope.connSignature = data['signature'];
-            $scope.socket = io.connect('/stream');
+            var query = 'username=' + data.username +
+                '&signature=' + encodeURIComponent($scope.connSignature);
+            $scope.socket = io.connect('/stream', {query: query});
             $scope.socket.on('chat', function (data) {
                 console.log('chat', data);
 
