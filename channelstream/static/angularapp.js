@@ -55,8 +55,7 @@ channelstreamApp.controller('chatCtl', function ($scope, $http) {
         success(function (data, status, headers, config) {
             $scope.user.userName = data['username'];
             $scope.connSignature = data['signature'];
-            $scope.socket = io.connect('http://127.0.0.1:8000/stream?username=' +
-                data.username + '&signature=' + encodeURIComponent($scope.connSignature));
+            $scope.socket = io.connect('/stream');
             $scope.socket.on('chat', function (data) {
                 console.log('chat', data);
 
