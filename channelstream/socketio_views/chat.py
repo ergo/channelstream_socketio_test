@@ -66,7 +66,7 @@ class StreamNamespace(BaseNamespace):
             if channel in self.session['channels']:
                 self.session['channels'].remove(channel)
                 matched_channels.append(channel)
-                if CHANNELS[channel].presence or 1:
+                if CHANNELS[channel].presence:
                     presence_info.append(channel)
         self.emit('leave', matched_channels)
         if presence_info:

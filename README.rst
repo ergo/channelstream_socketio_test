@@ -11,6 +11,36 @@ You can also see simple pyramid/angularjs demo included, open your browser and p
 
 **To run the demo you will need to have the `requests` package installed in your environment**
 
+** USAGE **
+
+Refer to channelstream/wsgi_views/demo.py for example usage.
+
+** Security model **
+
+To send information client interacts only with your normal www application.
+Your app handled authentication and processing messages from client, then passed
+them as signed message to channelstream server for broadcast.
+
+socketio client -> webapp -> REST call to socket server -> broadcast to other client
+
+This model is easy to implement, secure, easy to scale and allows all kind of
+languages/apps/work queues to interact with socket server.
+
+All messages need to be signed with a HMAC::
+
+    # from channelstream.utils
+
+    def hmac_encode(secret, endpoint):
+        """Generates a HMAC hash for endpoint """
+        d = int(time.time())
+        h = hmac.new(secret, '%s.%s' % (endpoint, d), hashlib.sha256)
+        signature = base64.b64encode(h.digest())
+        return '%s.%s' % (signature, d)
+
+The function accepts endpoint in form of '/messages' if you want to send a message
+ to users. This will be validated on socketio server side.
+
+
 Possible config options for the server::
 
     YOUR_PYTHON_ENV/bin/
@@ -22,6 +52,7 @@ example ini file::
     admin_secret = admin_secret
     secret = secret
     port = 8000
+    demo = true
     allow_posting_from = 127.0.0.1,
                          192.168.1.1
 
@@ -36,6 +67,7 @@ example ini file::
     policy_listener_port = 10843
     heartbeat_interval = 5
     heartbeat_timeout = 60
+
 
 
 Data format and endpoints

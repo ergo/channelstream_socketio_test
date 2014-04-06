@@ -44,20 +44,20 @@ def base64_decode(string):
     return base64.urlsafe_b64decode(string + b'=' * (-len(string) % 4))
 
 
-def hmac_encode(secret, action):
-    """Generates a HMAC hash for username, sets order of data for dictionaries """
+def hmac_encode(secret, endpoint):
+    """Generates a HMAC hash for endpoint """
     d = int(time.time())
-    h = hmac.new(secret, '%s.%s' % (action, d), hashlib.sha256)
+    h = hmac.new(secret, '%s.%s' % (endpoint, d), hashlib.sha256)
     signature = base64.b64encode(h.digest())
     return '%s.%s' % (signature, d)
 
 
-def hmac_validate(secret, action, other_signature):
-    """Validates a HMAC hash for username, sets order of data for dictionaries """
+def hmac_validate(secret, endpoint, other_signature):
+    """Validates a HMAC hash for endpoint"""
     d = int(time.time())
     old_sig, time_split = other_signature.split('.', 1)
     old_time = int(time_split)
-    h = hmac.new(secret, '%s.%s' % (action, old_time), hashlib.sha256)
+    h = hmac.new(secret, '%s.%s' % (endpoint, old_time), hashlib.sha256)
     signature = base64.b64encode(h.digest())
     if signature != old_sig:
         raise InvalidHMAC("Local sig: %s didnt match other sig: %s" % (
