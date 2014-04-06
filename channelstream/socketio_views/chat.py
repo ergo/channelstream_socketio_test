@@ -18,7 +18,7 @@ class StreamNamespace(BaseNamespace):
 
     def initialize(self):
         # print 'initialize'
-        sig = self.request.GET.get('sig')
+        sig = self.request.GET.get('signature')
         user_name = self.request.GET.get('username')
         hmac_validate(self.request.registry.settings['secret'],
                       user_name , sig)
@@ -33,37 +33,48 @@ class StreamNamespace(BaseNamespace):
 
 
     def recv_connect(self):
-        # print 'recv_connect'
-        # print 'OPEN CONNECTIONS', CONNECTIONS.keys()
-        # everything is ok so lets add new connection to channel and connection list
         if self.session['username'] not in USERS:
             self.socket.disconnect()
-        # self.broadcast_event('user_connect', {'message':'bla', 'user':self.session['username']})
 
     def recv_disconnect(self):
-        # print 'recv_disconnect'
-        # self.broadcast_event('user_disconnect', {'user':self.session['username']})
         del CONNECTIONS[id(self)]
-        # print 'DELETING', id(self)
         self.disconnect(silent=True)
 
     def on_join(self, channels):
         # print 'on_join', channels
         matched_channels = []
+        presence_info = []
         for channel in channels:
             if channel in USERS[self.session['username']].allowed_channels:
                 self.session['channels'].add(channel)
                 matched_channels.append(channel)
+                if CHANNELS[channel].presence:
+                    presence_info.append(channel)
         self.emit('join', matched_channels)
+        if presence_info:
+            for conn in CONNECTIONS.values():
+                common = conn.session['channels'] & set(presence_info)
+                conn.emit('presence_join', self.session['username'],
+                          list(common))
+
 
     def on_leave(self, channels):
         # print 'on_join', channels
         matched_channels = []
+        presence_info = []
         for channel in channels:
             if channel in self.session['channels']:
                 self.session['channels'].remove(channel)
                 matched_channels.append(channel)
+                if CHANNELS[channel].presence or 1:
+                    presence_info.append(channel)
         self.emit('leave', matched_channels)
+        if presence_info:
+            for conn in CONNECTIONS.values():
+                common = conn.session['channels'] & set(presence_info)
+                conn.emit('presence_leave', self.session['username'],
+                          list(common))
+
 
     def heartbeat(self):
         # print 'heartbeat', self.session['username'], id(self)

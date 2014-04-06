@@ -4,7 +4,7 @@ channelstreamApp.controller('chatCtl', function ($scope, $http) {
     $scope.user = {
         userName: userName
     };
-    $scope.connSignature = connSignature;
+    $scope.connSignature = null;
     $scope.channels = ['pub_chan', 'pub_chan2'];
     $scope.selected_channel = {value: $scope.channels[0]}
     $scope.stream = [];
@@ -34,10 +34,10 @@ channelstreamApp.controller('chatCtl', function ($scope, $http) {
             });
     }
 
-    var on_message = function (data) {
-        console.log('message', data);
+    var on_message = function (messages) {
+        console.log('messages', messages);
         $scope.$apply(function (scope) {
-            _.each(data, function (message) {
+            _.each(messages, function (message) {
                 if (scope.stream.length > 10) {
                     scope.stream.shift();
                 }
@@ -54,7 +54,9 @@ channelstreamApp.controller('chatCtl', function ($scope, $http) {
     $http({method: 'POST', url: webapp_url + '/connect', data: json_data}).
         success(function (data, status, headers, config) {
             $scope.user.userName = data['username'];
-            $scope.socket = io.connect('http://127.0.0.1:8000/stream?username=' + data.username + '&sig=' + encodeURIComponent(data.sig));
+            $scope.connSignature = data['signature'];
+            $scope.socket = io.connect('http://127.0.0.1:8000/stream?username=' +
+                data.username + '&signature=' + encodeURIComponent($scope.connSignature));
             $scope.socket.on('chat', function (data) {
                 console.log('chat', data);
 
@@ -89,6 +91,9 @@ channelstreamApp.controller('chatCtl', function ($scope, $http) {
             });
             $scope.socket.on('leave', function (channels, callback) {
                 console.log('leave', channels);
+            });
+            $scope.socket.on('presence_join', function (user, channels) {
+                console.log('presence_join', user, channels);
             });
         }).
         error(function (data, status, headers, config) {

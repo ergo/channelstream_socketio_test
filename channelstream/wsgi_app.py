@@ -7,7 +7,7 @@ from pyramid.authentication import BasicAuthAuthenticationPolicy
 
 from channelstream.ext_json import json
 from channelstream.wsgi_views.wsgi_security import APIFactory
-
+from pyramid.settings import asbool
 
 def datetime_adapter(obj, request):
     return obj.isoformat()
@@ -39,6 +39,7 @@ def make_app(global_config, **settings):
     ips = [ip.strip() for ip in
            config.registry.settings['allow_posting_from'].split(',')]
     config.registry.settings['allow_posting_from'] = ips
+    config.registry.settings['demo'] = asbool(config.registry.settings.get('demo'))
     config.registry.settings['status_codes'] = STATUS_CODES
     json_renderer = JSON(serializer=json.dumps)
     json_renderer.add_adapter(datetime.datetime, datetime_adapter)

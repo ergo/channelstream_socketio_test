@@ -2,7 +2,7 @@ channelstream
 =============
 Basic usage::
 
-    YOUR_PYTHON_ENV/bin/channelstream
+    YOUR_PYTHON_ENV/bin/pserver channelstream.ini
 
 
 You can also see simple pyramid/angularjs demo included, open your browser and point it to following url::
@@ -13,26 +13,35 @@ You can also see simple pyramid/angularjs demo included, open your browser and p
 
 Possible config options for the server::
 
-    YOUR_PYTHON_ENV/bin/channelstream -h
+    YOUR_PYTHON_ENV/bin/
 
-The server can also be configured via ini files, example::
+example ini file::
 
-    [channelstream]
-    debug = 0
+    [app:main]
+    paste.app_factory = channelstream.wsgi_app:make_app
+    admin_secret = admin_secret
+    secret = secret
     port = 8000
-    demo_app_url = http://127.0.0.1
-    secret = YOURSECRET
-    admin_secret = YOURADMINSECRET
     allow_posting_from = 127.0.0.1,
-                         x.x.x.x,
-                         y.y.y.y,
+                         192.168.1.1
 
+    [server:main]
+    use = egg:gevent-socketio#paster
+    host = 0.0.0.0
+    port = 8000
+    resource = socket.io
+    transports = websocket, xhr-polling
+    policy_server = True
+    policy_listener_host = 0.0.0.0
+    policy_listener_port = 10843
+    heartbeat_interval = 5
+    heartbeat_timeout = 60
 
 
 Data format and endpoints
 =========================
 
-/connect?secret=YOURSECRET
+/connect
 --------------------------
 
 expects a json request in form of::
@@ -44,7 +53,7 @@ expects a json request in form of::
    
 where channels is a list of channels this connection/user should be subscribed to.
 
-/info?secret=YOURSECRET
+/info
 --------------------------
 
 expects a json request in form of::
@@ -66,7 +75,7 @@ expects a json request in form of::
 
 marks specific connection to be garbage collected
 
-/message?secret=YOURSECRET
+/message
 --------------------------
 
 expects a json request in form of::
@@ -84,7 +93,7 @@ to connections subscribed to this specific channel.
 If only pm_users is present a private message is sent to all connections that are
 owned by pm_users.  
 
-/subscribe?secret=YOURSECRET
+/subscribe
 ----------------------------
 
 expects a json request in form of::
@@ -92,7 +101,7 @@ expects a json request in form of::
     { "channels": [ "CHAN_NAME1", "CHAN_NAMEX" ], "conn_id": "CONNECTION_ID"}
 
 
-/user_status?secret=YOURSECRET
+/user_status
 ----------------------------
 
 expects a json request in form of::
@@ -100,37 +109,40 @@ expects a json request in form of::
     { "user": USER_NAME, "status":STATUS_ID_INT}
 
 
-Responses to js client
+Example socket.io client usage
 ----------------------
 
 Responses to client are in form of **list** containing **objects**:
 
 examples:
 
-**new message** ::
-
-    {
-    "date": "2011-09-15T11:36:18.471862",
-    "message": MSG_PAYLOAD,
-    "type": "message",
-    "user": "NAME_OF_POSTER",
-    "channel": "CHAN_NAME"
-    }
-
-**presence info** ::
-
-    {
-    "date": "2011-09-15T11:43:47.434905",
-    "message": null,
-    "type": "join",
-    "user": "NAME_OF_POSTER",
-    "channel": "CHAN_NAME"
-    }
-
+            socket = io.connect('http://127.0.0.1:8000/stream?username=' + data.username + '&sig=' + encodeURIComponent(data.sig));
+            socket.on('connecting', function () {
+                console.log('connecting');
+            });
+            socket.on('connect', function () {
+                console.log('connected');
+                socket.emit('join', ['pub_chan', 'pub_chan2'])
+            });
+            socket.on('disconnect', function () {
+                console.log('disconnected');
+            });
+            socket.on('user_connect', function (message, callback) {
+                console.log('user_connect', message);
+            });
+            socket.on('message', function(messages){
+                console.log('messages', messages);
+            };
+            socket.on('join', function (channels) {
+                console.log('join', channels);
+            });
+            socket.on('leave', function (channels) {
+                console.log('leave', channels);
+            });
 
 Installation and Setup
 ======================
 
-Obtain source from bitbucket and do::
+Obtain source from github and do::
 
     python setup.py develop
