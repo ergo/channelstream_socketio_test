@@ -19,9 +19,4 @@ setup(name='channelstream',
           'gevent-socketio>=0.3.6',
           'pyramid',
           'pyramid_jinja2',
-      ],
-    entry_points = {
-        'console_scripts': [
-            'channelstream = channelstream.cli:cli_start',
-        ],
-        })
+      ])

@@ -38,21 +38,22 @@ def pass_message(msg):
                'timestamp': timestmp
     }
     pm_users = msg.get('pm_users') or []
-    total_sent = 0
-    global total_unique_messages
     total_unique_messages += 1
     if msg.get('channel'):
         for conn in CONNECTIONS.values():
             if msg['channel'] in conn.session['channels']:
+                channel = CHANNELS.get(msg['channel'])
+                if channel:
+                    channel.last_active = datetime.utcnow()
                 if not pm_users or conn.session['username'] in pm_users:
-                    conn.emit('message', msg)
-                    total_messages += total_sent
+                    total_messages += 1
+                    conn.emit('message', [msg])
     elif pm_users:
         # if pm then iterate over all users and notify about new message hiyoo!!
         for conn in CONNECTIONS.values():
             if conn.session['username'] in pm_users:
-                conn.emit('message', msg)
-                total_messages += total_sent
+                total_messages += 1
+                conn.emit('message', [msg])
 
 
 class ServerViews(object):
@@ -62,9 +63,7 @@ class ServerViews(object):
     @view_config(route_name='action', match_param='action=connect',
                  renderer='json', permission='access')
     def connect(self):
-        """return the id of connected users - will be secured with password string
-        for webapp to internally call the server - we combine conn string with user id,
-        and we tell which channels the user is allowed to subscribe to"""
+        """ set user along with connection info """
         username = self.request.json_body.get('username')
         def_status = self.request.registry.settings['status_codes']['online']
         user_status = int(self.request.json_body.get('status', def_status))
@@ -77,17 +76,21 @@ class ServerViews(object):
             self.request.response.status = 400
             return {'error': "No channels specified"}
 
-        # everything is ok so lets add new connection to channel and connection list
+        # everything is ok so lets add new user and channels
         with lock:
             if not username in USERS:
                 user = User(username, def_status)
                 USERS[username] = user
             else:
                 user = USERS[username]
+                user.last_active = datetime.utcnow()
             for channel_name in subscribe_to_channels:
-                if channel_name not in CHANNELS:
+                channel = CHANNELS.get(channel_name)
+                if not channel:
                     channel = Channel(channel_name)
                     CHANNELS[channel_name] = channel
+                else:
+                    channel.last_active = datetime.utcnow()
             user.allowed_channels.extend(subscribe_to_channels)
             log.info('connecting %s' % username)
         return {'status': user.status}
@@ -101,14 +104,23 @@ class ServerViews(object):
         if not subscribe_to_channels:
             self.request.response.status = 400
             return {'error': "No channels specified"}
+        user = USERS.get(username)
+        if not user:
+            self.request.response.status = 404
+            return {'error': "User doesn't exist"}
         with lock:
-            for chan in subscribe_to_channels:
-                if chan not in USERS['username'].allowed_channels:
-                    USERS['username'].allowed_channels.append(chan)
+            user.last_active = datetime.utcnow()
+            for channel_name in subscribe_to_channels:
+                if channel_name not in user.allowed_channels:
+                    user.allowed_channels.append(channel_name)
                     # create channels that didnt exist
-                    if chan not in CHANNELS:
-                        channel = Channel(chan)
-                        CHANNELS[chan] = channel
+                    channel = CHANNELS.get(channel_name)
+                    if not channel:
+                        channel = Channel(channel_name)
+                        CHANNELS[channel_name] = channel
+                    else:
+                        channel.last_active = datetime.utcnow()
+
         return subscribe_to_channels
 
 
@@ -142,6 +154,7 @@ class ServerViews(object):
 
         if username in USERS:
             USERS[username].status = user_status
+            USERS[username].last_active = datetime.utcnow()
         return {}
 
 
@@ -193,8 +206,7 @@ class ServerViews(object):
                  renderer='templates/admin.jinja2', permission='access')
     def admin(self):
         uptime = datetime.utcnow() - started_on
-        remembered_user_count = len(
-            [user for user in USERS.iteritems()])
+        remembered_user_count = len(USERS)
         uq_u_dict = {}
         channel_conns = {}
         for conn in CONNECTIONS.values():
@@ -207,7 +219,7 @@ class ServerViews(object):
                 if conn.session['username'] not in channel_conns[chan]:
                     channel_conns[chan][conn.session['username']] = 0
                 channel_conns[chan][conn.session['username']] = +1
-        unique_user_count = 0
+        unique_user_count = len(uq_u_dict.keys())
         total_connections = len(CONNECTIONS)
         return {
             "remembered_user_count": remembered_user_count,
@@ -216,40 +228,50 @@ class ServerViews(object):
             "total_messages": total_messages,
             "total_unique_messages": total_unique_messages,
             "channels": CHANNELS,
-            "channel_conns":channel_conns,
+            "channel_conns": channel_conns,
             "users": USERS, "uptime": uptime
         }
 
 
     @view_config(route_name='action', match_param='action=info',
-                 renderer='json', permission='access')
+                 renderer='json')
     def info(self):
         start_time = datetime.now()
-
-        json_data = {"channels": {}, "unique_users": len(USERS)}
-
+        uptime = datetime.utcnow() - started_on
+        remembered_user_count = len(USERS)
         # select everything for empty list
         if not self.request.body or not self.request.json_body.get('channels'):
             req_channels = CHANNELS.keys()
         else:
             req_channels = self.request.json_body['channels']
-        # return requested channel info
-        for channel_inst in [chan for chan in CHANNELS.values() if
-                             chan.name in req_channels]:
-            json_data["channels"][channel_inst.name] = {}
-            json_data["channels"][channel_inst.name]['total_users'] = len(
-                channel_inst.connections)
-            json_data["channels"][channel_inst.name]['total_connections'] = sum(
-                [len(conns) for conns in channel_inst.connections.values()])
-            json_data["channels"][channel_inst.name]['users'] = []
-            for username in channel_inst.connections.keys():
-                user_inst = users.get(username)
-                udata = {'user': user_inst.username,
-                         'status': user_inst.status,
-                         "connections": [conn.id for conn in
-                                         channel_inst.connections[username]]}
-                json_data["channels"][channel_inst.name]['users'].append(udata)
-            json_data["channels"][channel_inst.name][
-                'last_active'] = channel_inst.last_active
+
+        uq_u_dict = {}
+        channel_conns = {}
+        for conn in CONNECTIONS.values():
+            username = conn.session['username']
+            if not username in uq_u_dict:
+                uq_u_dict[username] = 0
+            uq_u_dict[username] += 1
+            for chan in conn.session['channels']:
+                if chan not in channel_conns:
+                    channel = CHANNELS.get(chan)
+                    channel_conns[chan] = {'users': {},
+                                           'last_active': channel.last_active}
+                if username not in channel_conns[chan]['users']:
+                    user = USERS[username]
+                    channel_conns[chan]['users'][username] = {
+                        'status': user.status,
+                        'connections': 0}
+                channel_conns[chan]['users'][username]['connections'] = +1
+        unique_user_count = len(uq_u_dict.keys())
+        total_connections = len(CONNECTIONS)
+
         log.info('info time: %s' % (datetime.now() - start_time))
-        return json_data
+        return {
+            "remembered_user_count": remembered_user_count,
+            "unique_user_count": unique_user_count,
+            "total_connections": total_connections,
+            "total_messages": total_messages,
+            "total_unique_messages": total_unique_messages,
+            "channels": channel_conns
+        }

@@ -37,7 +37,7 @@ channelstreamApp.controller('chatCtl', function ($scope, $http) {
     var on_message = function (data) {
         console.log('message', data);
         $scope.$apply(function (scope) {
-            _.each([data], function (message) {
+            _.each(data, function (message) {
                 if (scope.stream.length > 10) {
                     scope.stream.shift();
                 }
@@ -78,12 +78,13 @@ channelstreamApp.controller('chatCtl', function ($scope, $http) {
             });
             $scope.socket.on('message', on_message);
             $scope.socket.on('join', function (channels, callback) {
-                _.each(channels, function (chan) {
-                    console.log('joined', chan);
-                    if (_.indexOf($scope.channels, chan) === -1) {
-                        $scope.channels.push(chan);
-                    }
-
+                $scope.$apply(function (scope) {
+                    _.each(channels, function (chan) {
+                        console.log('joined', chan);
+                        if (_.indexOf(scope.channels, chan) === -1) {
+                            scope.channels.push(chan);
+                        }
+                    });
                 });
             });
             $scope.socket.on('leave', function (channels, callback) {
