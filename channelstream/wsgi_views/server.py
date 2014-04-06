@@ -1,7 +1,6 @@
 import logging
 from datetime import datetime
 
-import itsdangerous
 from pyramid.view import view_config
 from pyramid.httpexceptions import HTTPUnauthorized
 from pyramid.security import forget
