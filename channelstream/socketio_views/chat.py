@@ -15,7 +15,6 @@ CONNECTIONS = {}
 
 
 class StreamNamespace(BaseNamespace):
-
     def initialize(self):
         # print 'initialize'
         sig = self.request.GET.get('signature')
@@ -24,15 +23,15 @@ class StreamNamespace(BaseNamespace):
             self.disconnect(silent=True)
             return
         hmac_validate(self.request.registry.settings['secret'],
-                      user_name , sig)
+                      user_name, sig)
         def_status = self.request.registry.settings['status_codes']['online']
         CONNECTIONS[id(self)] = self
 
         self.last_active = datetime.utcnow()
         if 'channels' not in self.session:
-            self.session['channels'] = set() # a set of simple strings
+            self.session['channels'] = set()  # a set of simple strings
             self.session['username'] = user_name
-        # self.spawn(self.heartbeat)
+            # self.spawn(self.heartbeat)
 
 
     def recv_connect(self):
@@ -41,7 +40,11 @@ class StreamNamespace(BaseNamespace):
 
     def recv_disconnect(self):
         self.disconnect(silent=True)
-        del CONNECTIONS[id(self)]
+
+    def disconnect(self, silent=False):
+        if id(self) in CONNECTIONS:
+            del CONNECTIONS[id(self)]
+        super(StreamNamespace, self).disconnect(silent)
 
 
     def on_join(self, channels):
@@ -84,7 +87,7 @@ class StreamNamespace(BaseNamespace):
         # print 'heartbeat', self.session['username'], id(self)
         if id(self) in CONNECTIONS:
             try:
-                self.emit('heartbeat','')
+                self.emit('heartbeat', '')
                 gevent.sleep(5)
                 self.spawn(self.heartbeat)
             except Exception as e:
@@ -96,12 +99,11 @@ class StreamNamespace(BaseNamespace):
         self.last_active -= timedelta(minutes=60)
 
 
-
 @view_config(route_name='socketio', renderer='string')
 def socketio_service(request):
     socketio_manage(request.environ,
                     {'/stream': StreamNamespace},
                     request=request
-                    )
+    )
 
     return Response('')
