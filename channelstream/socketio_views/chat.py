@@ -47,10 +47,7 @@ class StreamNamespace(BaseNamespace):
                 super(StreamNamespace, self).disconnect(silent)
             finally:
                 if id(self) in CONNECTIONS:
-                    # cleanup and help garbage collector a bit to remove cyclic ref
-                    del CONNECTIONS[id(self)].request.environ['socketio']
-                    del CONNECTIONS[id(self)].request
-                    del CONNECTIONS[id(self)].socket
+                    # cleanup
                     del CONNECTIONS[id(self)]
 
 
