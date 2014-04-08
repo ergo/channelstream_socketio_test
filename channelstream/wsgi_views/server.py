@@ -232,9 +232,41 @@ class ServerViews(object):
             "users": USERS, "uptime": uptime
         }
 
+    # helpful to debug locally what might possibly leak
+    # @view_config(route_name='action', match_param='action=gc',
+    #              renderer='json')
+    # def gc(self):
+    #     import gc
+    #     import pprint
+    #     print 'Collecting...'
+    #     n = gc.collect()
+    #     print 'Unreachable objects:', n
+    #     print 'Remaining Garbage:',
+    #     pprint.pprint(gc.garbage)
+    #
+    #     REFERRERS_TO_IGNORE = [ locals(), globals(), gc.garbage ]
+    #
+    #     def find_referring_graphs(obj):
+    #         print 'Looking for references to %s' % repr(obj)
+    #         referrers = (r for r in gc.get_referrers(obj)
+    #                      if r not in REFERRERS_TO_IGNORE)
+    #         for ref in referrers:
+    #             if not isinstance(ref, dict):
+    #                 # A graph node
+    #                 yield ref
+    #             elif isinstance(ref, dict):
+    #                 # An instance or other namespace dictionary
+    #                 for parent in find_referring_graphs(ref):
+    #                     yield parent
+
+        print 'Clearing referrers:'
+        for obj in gc.garbage:
+            for ref in find_referring_graphs(obj):
+                print ref
+
 
     @view_config(route_name='action', match_param='action=info',
-                 renderer='json')
+                 renderer='json', permission='access')
     def info(self):
         start_time = datetime.now()
         uptime = datetime.utcnow() - started_on

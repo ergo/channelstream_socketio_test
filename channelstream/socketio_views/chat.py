@@ -43,9 +43,15 @@ class StreamNamespace(BaseNamespace):
 
     def disconnect(self, silent=False):
         with lock:
-            if id(self) in CONNECTIONS:
-                del CONNECTIONS[id(self)]
-            super(StreamNamespace, self).disconnect(silent)
+            try:
+                super(StreamNamespace, self).disconnect(silent)
+            finally:
+                if id(self) in CONNECTIONS:
+                    # cleanup and help garbage collector a bit to remove cyclic ref
+                    del CONNECTIONS[id(self)].request.environ['socketio']
+                    del CONNECTIONS[id(self)].request
+                    del CONNECTIONS[id(self)].socket
+                    del CONNECTIONS[id(self)]
 
 
     def on_join(self, channels):
