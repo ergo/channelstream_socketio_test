@@ -19,6 +19,8 @@ class APIFactory(object):
             return
         if req_secret:
             hmac_validate(config['secret'], request.path, req_secret)
+        else:
+            return
         self.__acl__ = [(Allow, Everyone, ALL_PERMISSIONS)]
 
 
