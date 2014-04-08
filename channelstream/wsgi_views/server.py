@@ -21,38 +21,39 @@ log = logging.getLogger(__name__)
 def pass_message(msg):
     global total_messages
     global total_unique_messages
-    if msg.get('timestamp'):
-        # if present lets use timestamp provided in the message
-        if '.' in msg['timestamp']:
-            timestmp = datetime.strptime(msg['timestamp'],
-                                         '%Y-%m-%dT%H:%M:%S.%f')
+    with lock:
+        if msg.get('timestamp'):
+            # if present lets use timestamp provided in the message
+            if '.' in msg['timestamp']:
+                timestmp = datetime.strptime(msg['timestamp'],
+                                             '%Y-%m-%dT%H:%M:%S.%f')
+            else:
+                timestmp = datetime.strptime(msg['timestamp'],
+                                             '%Y-%m-%dT%H:%M:%S')
         else:
-            timestmp = datetime.strptime(msg['timestamp'],
-                                         '%Y-%m-%dT%H:%M:%S')
-    else:
-        timestmp = datetime.utcnow()
-    message = {'user': msg.get('username'),
-               'message': msg['message'],
-               'type': 'message',
-               'timestamp': timestmp
-    }
-    pm_users = msg.get('pm_users') or []
-    total_unique_messages += 1
-    if msg.get('channel'):
-        for conn in CONNECTIONS.values():
-            if msg['channel'] in conn.session['channels']:
-                channel = CHANNELS.get(msg['channel'])
-                if channel:
-                    channel.last_active = datetime.utcnow()
-                if not pm_users or conn.session['username'] in pm_users:
+            timestmp = datetime.utcnow()
+        message = {'user': msg.get('username'),
+                   'message': msg['message'],
+                   'type': 'message',
+                   'timestamp': timestmp
+        }
+        pm_users = msg.get('pm_users') or []
+        total_unique_messages += 1
+        if msg.get('channel'):
+            for conn in CONNECTIONS.values():
+                if msg['channel'] in conn.session['channels']:
+                    channel = CHANNELS.get(msg['channel'])
+                    if channel:
+                        channel.last_active = datetime.utcnow()
+                    if not pm_users or conn.session['username'] in pm_users:
+                        total_messages += 1
+                        conn.emit('message', [msg])
+        elif pm_users:
+            # if pm then iterate over all users and notify about new message hiyoo!!
+            for conn in CONNECTIONS.values():
+                if conn.session['username'] in pm_users:
                     total_messages += 1
                     conn.emit('message', [msg])
-    elif pm_users:
-        # if pm then iterate over all users and notify about new message hiyoo!!
-        for conn in CONNECTIONS.values():
-            if conn.session['username'] in pm_users:
-                total_messages += 1
-                conn.emit('message', [msg])
 
 
 class ServerViews(object):

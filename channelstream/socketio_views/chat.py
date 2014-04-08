@@ -25,13 +25,13 @@ class StreamNamespace(BaseNamespace):
         hmac_validate(self.request.registry.settings['secret'],
                       user_name, sig)
         def_status = self.request.registry.settings['status_codes']['online']
-        CONNECTIONS[id(self)] = self
-
-        self.last_active = datetime.utcnow()
-        if 'channels' not in self.session:
-            self.session['channels'] = set()  # a set of simple strings
-            self.session['username'] = user_name
-            # self.spawn(self.heartbeat)
+        with lock:
+            CONNECTIONS[id(self)] = self
+            self.last_active = datetime.utcnow()
+            if 'channels' not in self.session:
+                self.session['channels'] = set()  # a set of simple strings
+                self.session['username'] = user_name
+                # self.spawn(self.heartbeat)
 
 
     def recv_connect(self):
@@ -42,45 +42,48 @@ class StreamNamespace(BaseNamespace):
         self.disconnect(silent=True)
 
     def disconnect(self, silent=False):
-        if id(self) in CONNECTIONS:
-            del CONNECTIONS[id(self)]
-        super(StreamNamespace, self).disconnect(silent)
+        with lock:
+            if id(self) in CONNECTIONS:
+                del CONNECTIONS[id(self)]
+            super(StreamNamespace, self).disconnect(silent)
 
 
     def on_join(self, channels):
         # print 'on_join', channels
         matched_channels = []
         presence_info = []
-        for channel in channels:
-            if channel in USERS[self.session['username']].allowed_channels:
-                self.session['channels'].add(channel)
-                matched_channels.append(channel)
-                if CHANNELS[channel].presence:
-                    presence_info.append(channel)
-        self.emit('join', matched_channels)
-        if presence_info:
-            for conn in CONNECTIONS.values():
-                common = conn.session['channels'] & set(presence_info)
-                conn.emit('presence_join', self.session['username'],
-                          list(common))
+        with lock:
+            for channel in channels:
+                if channel in USERS[self.session['username']].allowed_channels:
+                    self.session['channels'].add(channel)
+                    matched_channels.append(channel)
+                    if CHANNELS[channel].presence:
+                        presence_info.append(channel)
+            self.emit('join', matched_channels)
+            if presence_info:
+                for conn in CONNECTIONS.values():
+                    common = conn.session['channels'] & set(presence_info)
+                    conn.emit('presence_join', self.session['username'],
+                              list(common))
 
 
     def on_leave(self, channels):
         # print 'on_join', channels
         matched_channels = []
         presence_info = []
-        for channel in channels:
-            if channel in self.session['channels']:
-                self.session['channels'].remove(channel)
-                matched_channels.append(channel)
-                if CHANNELS[channel].presence:
-                    presence_info.append(channel)
-        self.emit('leave', matched_channels)
-        if presence_info:
-            for conn in CONNECTIONS.values():
-                common = conn.session['channels'] & set(presence_info)
-                conn.emit('presence_leave', self.session['username'],
-                          list(common))
+        with lock:
+            for channel in channels:
+                if channel in self.session['channels']:
+                    self.session['channels'].remove(channel)
+                    matched_channels.append(channel)
+                    if CHANNELS[channel].presence:
+                        presence_info.append(channel)
+            self.emit('leave', matched_channels)
+            if presence_info:
+                for conn in CONNECTIONS.values():
+                    common = conn.session['channels'] & set(presence_info)
+                    conn.emit('presence_leave', self.session['username'],
+                              list(common))
 
 
     def heartbeat(self):
